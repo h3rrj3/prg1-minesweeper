@@ -10,14 +10,9 @@ import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.GridPane;
 
 public class Controller {
-
-    // Model
     private Board board;
-
-    // private
     private boolean isActive;
 
-    // View Fields
     @FXML
     private Label message;
     @FXML
@@ -27,60 +22,114 @@ public class Controller {
 
     @FXML
     public void initialize() {
+        this.board = new Board(); // Initialisiere das Board neu
+        Cell[][] cells = this.board.getCells(); // Lade die Zellen
+
+        for (int row = 0; row < Board.ROWS; row++) {
+            for (int col = 0; col < Board.COLS; col++) {
+                Cell cell = cells[row][col];
+                grid.add(cell, col, row);
+
+                cell.setOnMouseClicked(event -> {
+                    int r = GridPane.getRowIndex(cell);
+                    int c = GridPane.getColumnIndex(cell);
+                    handleCellClick(event, r, c);
+                });
+            }
+        }
+
+        refreshGrid();
+        message.setText("Good Luck!");
         isActive = true;
-        this.board = new Board();
-        Cell[][] cells = this.board.getCells();
-        for(int i = 0; i < Board.ROWS; i++){
-            for(int j = 0; j < Board.COLS; j++) {
-                // TODO add cells to grid, print for testing or use debugger
-                //System.out.println(cells[i][j]);
-                //grid.add(cells[i][j], j, i);
+    }
+
+    private void refreshGrid() {
+        for (int row = 0; row < Board.ROWS; row++) {
+            for (int col = 0; col < Board.COLS; col++) {
+                Cell cell = board.getCells()[row][col];
+                if (cell.isUncovered()) {
+                    cell.update(cell.getImageForState()); // Bild für aufgedeckte Zellen
+                } else {
+                    cell.update(cell.getImageForMark()); // Bild für markierte/verdeckte Zellen
+                }
             }
         }
     }
-    @FXML
-    public void update(MouseEvent event){
-        if(isActive) {
-            if (event.getEventType() == MouseEvent.MOUSE_CLICKED) {
-                int col = (int) event.getX() / Board.CELL_SIZE;
-                int row = (int) event.getY() / Board.CELL_SIZE;
-                if (event.getButton() == MouseButton.PRIMARY) {
-                    if (board.uncover(row, col)) {
-                        if(board.isGameOver()){
-                            board.uncoverAllCells();
-                            message.setText("Sorry. Leider verloren.");
-                            board.uncoverAllCells();
-                            isActive = false;
-                        }
-                    } else {
-                        //TODO Give hint when one tries to uncover a marked cell.
-                    }
-                } else if (event.getButton() == MouseButton.SECONDARY) {
-                    board.markCell(row, col);
-                }
-                if (board.getCellsUncovered() == (Board.ROWS * Board.COLS - Board.NUM_MINES)
-                        && board.getMinesMarked() == Board.NUM_MINES) {
-                    message.setText("Glückwunsch! Du hast gewonnen.");
+
+
+    private void handleCellClick(MouseEvent event, int row, int col) {
+        if (!isActive) return; // Überprüfen, ob das Spiel aktiv ist
+
+        if (event.getButton() == MouseButton.PRIMARY) {
+            if (board.uncover(row, col)) {
+                if (board.isGameOver()) {
+                    message.setText("Sorry. Leider verloren.");
                     isActive = false;
                 }
-                if(isActive)
-                    message.setText(" Marker: " + board.getMinesMarked() + "/" + Board.NUM_MINES);
             }
+        } else if (event.getButton() == MouseButton.SECONDARY) {
+            if (board.markCell(row, col)) {
+                message.setText("Marker: " + board.getMinesMarked() + "/" + Board.NUM_MINES);
+            }
+        }
+
+        if (board.getCellsUncovered() == (Board.ROWS * Board.COLS - Board.NUM_MINES) && board.getMinesMarked() == Board.NUM_MINES) {
+            message.setText("Glückwunsch! Du hast gewonnen.");
+            isActive = false;
+        }
+
+        refreshGrid();
+    }
+
+
+    @FXML
+    public void update(MouseEvent event) {
+        if (!isActive) return;
+
+        int col = (int) event.getX() / Board.CELL_SIZE;
+        int row = (int) event.getY() / Board.CELL_SIZE;
+
+        if (event.getButton() == MouseButton.PRIMARY) {
+            if (board.uncover(row, col)) {
+                if (board.isGameOver()) {
+                    message.setText("Sorry. Leider verloren.");
+                    isActive = false;
+                }
+            }
+        } else if (event.getButton() == MouseButton.SECONDARY) {
+            if (board.markCell(row, col)) {
+                message.setText("Marker: " + board.getMinesMarked() + "/" + Board.NUM_MINES);
+            }
+        }
+
+        if (board.getCellsUncovered() == (Board.ROWS * Board.COLS - Board.NUM_MINES) && board.getMinesMarked() == Board.NUM_MINES) {
+            message.setText("Glückwunsch! Du hast gewonnen.");
+            isActive = false;
         }
     }
 
     @FXML
     public void restart(ActionEvent actionEvent) {
         grid.getChildren().clear();
-        initialize();
+        this.board = new Board();
+        Cell[][] cells = this.board.getCells(); // Lade die Zellen
 
-        // Testing ;) add Methode fügt nur hinzu. das bestehende bleibt. daher vorher clear.
-        /*
-        ObservableList<Node> childrens = grid.getChildren();
-        for (Node node : childrens) {
-            Cell c = (Cell) node;
-            System.out.println(GridPane.getColumnIndex(c) + " " + GridPane.getRowIndex(c));
+        for (int row = 0; row < Board.ROWS; row++) {
+            for (int col = 0; col < Board.COLS; col++) {
+                Cell cell = cells[row][col];
+                grid.add(cell, col, row);
+
+                cell.setOnMouseClicked(event -> {
+                    int r = GridPane.getRowIndex(cell);
+                    int c = GridPane.getColumnIndex(cell);
+                    handleCellClick(event, r, c);
+                });
+            }
         }
-        */
+
+        refreshGrid();
+        message.setText("Good Luck!");
+        isActive = true;
     }
+
 }

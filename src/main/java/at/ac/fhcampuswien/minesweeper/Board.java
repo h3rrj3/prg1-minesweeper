@@ -1,10 +1,7 @@
 package at.ac.fhcampuswien.minesweeper;
 
-import at.ac.fhcampuswien.minesweeper.Cell;
 import javafx.scene.image.Image;
 
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -12,77 +9,142 @@ import java.util.List;
 import java.util.Random;
 
 public class Board {
-    public static final int CELL_SIZE = 15;
+    public static final int CELL_SIZE = 17;
     public static final int ROWS = 25;
     public static final int COLS = 25;
     public static final int NUM_IMAGES = 13;
-    public static final int NUM_MINES = 50;
+    public static final int NUM_MINES = 25; // Anzahl der Minen wird hier definiert
 
-    // Add further constants or let the cell keep track of its state.
-
-    private Cell cells[][];
+    private Cell[][] cells;
     private Image[] images;
     private int cellsUncovered;
     private int minesMarked;
     private boolean gameOver;
 
-    /**
-     * Constructor preparing the game. Playing a new game means creating a new Board.
-     */
-    public Board(){
+    public Board() {
         cells = new Cell[ROWS][COLS];
         cellsUncovered = 0;
         minesMarked = 0;
         gameOver = false;
         loadImages();
-        // at the beginning every cell is covered
-        // TODO cover cells. complete the grid with calls to new Cell();
 
-        // set neighbours for convenience
-        // TODO compute all neighbours for a cell.
+        for (int i = 0; i < ROWS; i++) {
+            for (int j = 0; j < COLS; j++) {
+                cells[i][j] = new Cell(images[0], 0);
+            }
+        }
 
-        // then we place NUM_MINES on the board and adjust the neighbours (1,2,3,4,... if not a mine already)
-        // TODO place random mines.
+        for (int i = 0; i < ROWS; i++) {
+            for (int j = 0; j < COLS; j++) {
+                cells[i][j].setNeighbours(computeNeighbours(i, j));
+            }
+        }
+
+        Random random = new Random();
+        int minesPlaced = 0;
+        while (minesPlaced < NUM_MINES) {
+            int row = random.nextInt(ROWS);
+            int col = random.nextInt(COLS);
+            if (cells[row][col].getState() != -1) { // -1 = Mine
+                cells[row][col].setState(-1);
+                updateNeighbours(row, col);
+                minesPlaced++;
+            }
+        }
     }
 
     public boolean uncover(int row, int col) {
-        // TODO uncover the cell, check if it is a bomb, if it is an empty cell you may! uncover all adjacent empty cells.
-        return true; // could be a void function as well
+        if (!isValidCell(row, col) || cells[row][col].isUncovered() || cells[row][col].isMarked()) {
+            return false;
+        }
+
+        cells[row][col].uncover();
+        cellsUncovered++;
+
+        if (cells[row][col].getState() == -1) {
+            gameOver = true;
+            uncoverAllCells();
+            return true;
+        }
+
+        if (cells[row][col].getState() == 0) {
+            uncoverEmptyCells(cells[row][col]);
+        }
+
+        return false;
     }
 
     public boolean markCell(int row, int col) {
-        // TODO mark the cell if it is not already marked.
-        return true;
+        if (isValidCell(row, col) && !cells[row][col].isUncovered()) {
+            cells[row][col].toggleMark();
+            minesMarked += cells[row][col].isMarked() ? 1 : -1;
+            return true;
+        }
+        return false;
     }
 
     public void uncoverEmptyCells(Cell cell) {
-       // TODO you may implement this function. It's usually implemented by means of a recursive function.
+        if (cell.getNeighbours() == null) return;
+
+        for (Cell neighbour : cell.getNeighbours()) {
+            if (!neighbour.isUncovered() && !neighbour.isMarked()) {
+                neighbour.uncover();
+                cellsUncovered++;
+                if (neighbour.getState() == 0) {
+                    uncoverEmptyCells(neighbour);
+                }
+            }
+        }
     }
 
-
-    public void uncoverAllCells(){
-        //TODO Uncover everything in case a mine was hit and the game is over.
+    public void uncoverAllCells() {
+        for (int i = 0; i < ROWS; i++) {
+            for (int j = 0; j < COLS; j++) {
+                if (!cells[i][j].isUncovered()) {
+                    cells[i][j].uncover();
+                }
+            }
+        }
     }
 
+    private void updateNeighbours(int row, int col) {
+        for (int i = -1; i <= 1; i++) {
+            for (int j = -1; j <= 1; j++) {
+                int newRow = row + i;
+                int newCol = col + j;
+                if (isValidCell(newRow, newCol) && cells[newRow][newCol].getState() != -1) {
+                    cells[newRow][newCol].incrementState();
+                }
+            }
+        }
+    }
 
-    public List<Cell> computeNeighbours(int x, int y){
+    private boolean isValidCell(int row, int col) {
+        return row >= 0 && row < ROWS && col >= 0 && col < COLS;
+    }
+
+    public List<Cell> computeNeighbours(int x, int y) {
         List<Cell> neighbours = new ArrayList<>();
-        // TODO get all the neighbours for a given cell. this means coping with mines at the borders.
+        for (int i = -1; i <= 1; i++) {
+            for (int j = -1; j <= 1; j++) {
+                int newRow = x + i;
+                int newCol = y + j;
+                if (isValidCell(newRow, newCol) && !(i == 0 && j == 0)) {
+                    neighbours.add(cells[newRow][newCol]);
+                }
+            }
+        }
         return neighbours;
     }
 
-    /**
-     * Loads the given images into memory. Of course you may use your own images and layouts.
-     */
     private void loadImages() {
         images = new Image[NUM_IMAGES];
         for (int i = 0; i < NUM_IMAGES; i++) {
-
-            var path = "images/" + i + ".png";  // Assuming images are placed in resources/images
+            var path = "images/" + i + ".png";
 
             try (InputStream is = getClass().getResourceAsStream(path)) {
                 if (is == null) {
-                    System.err.println("Image not found: " + path);
+                    System.err.println("Bild fehlt: " + path);
                     continue;
                 }
                 this.images[i] = new Image(is);
@@ -96,17 +158,6 @@ public class Board {
         return cells;
     }
 
-    /**
-     * Computes a random int number between min and max.
-     * @param min the lower bound. inclusive.
-     * @param max the upper bound. inclusive.
-     * @return a random int.
-     */
-    private int getRandomNumberInts(int min, int max){
-        Random random = new Random();
-        return random.ints(min,(max+1)).findFirst().getAsInt();
-    }
-
     public int getMinesMarked() {
         return minesMarked;
     }
@@ -118,5 +169,4 @@ public class Board {
     public int getCellsUncovered() {
         return cellsUncovered;
     }
-
 }
